@@ -2,3 +2,5 @@
 local.properties
 /.gradle
 /.idea
+WebRtcNsAgcModel/.cxx/
+

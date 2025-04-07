@@ -9,6 +9,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import vip.inode.demo.webrtc.AutomaticGainControlUtils
+import vip.inode.demo.webrtc.NoiseSuppressorUtils
 //import kotlinx.android.synthetic.main.activity_main.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
