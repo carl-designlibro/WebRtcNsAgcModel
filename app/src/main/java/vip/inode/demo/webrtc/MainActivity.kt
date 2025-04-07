@@ -9,7 +9,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import kotlinx.android.synthetic.main.activity_main.*
+//import kotlinx.android.synthetic.main.activity_main.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.concurrent.thread
@@ -17,9 +17,16 @@ import kotlin.concurrent.thread
 class MainActivity : AppCompatActivity() {
     private val tag = "MainActivity"
     var isStop = false
+
+//    private lateinit var binding: ActivityMainBinding
+
+    private lateinit var enable_ns_agc_switch: android.widget.Switch
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        enable_ns_agc_switch = findViewById(R.id.enable_ns_agc_switch)
     }
 
     private val audioRes by lazy {
@@ -27,8 +34,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun onClick(view: View) {
-        when (view) {
-            start_btn -> {
+        when (view.id) {
+            R.id.start_btn -> {
                 isStop = false
                 thread {
                     val enabledNsAgc = enable_ns_agc_switch.isChecked
@@ -113,7 +120,7 @@ class MainActivity : AppCompatActivity() {
                     audioTrack.release()
                 }
             }
-            stop_btn -> {
+            R.id.stop_btn -> {
                 isStop = true
             }
             else -> {
