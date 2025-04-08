@@ -6,21 +6,13 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import vip.inode.demo.webrtc.AutomaticGainControlUtils
-import vip.inode.demo.webrtc.NoiseSuppressorUtils
-//import kotlinx.android.synthetic.main.activity_main.*
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
     private val tag = "MainActivity"
     var isStop = false
-
-//    private lateinit var binding: ActivityMainBinding
 
     private lateinit var enable_ns_agc_switch: android.widget.Switch
 
@@ -32,8 +24,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val audioRes by lazy {
-        resources.openRawResource(R.raw.recorder)
+        val id = if (sampleRateInHz == 16000) {
+            R.raw.recorder
+        } else {
+            R.raw.recorder_44d1k
+        }
+        resources.openRawResource(id)
     }
+
+    val sampleRateInHz = 16000
+//    错误场景测试
+//val sampleRateInHz = 44100
+
 
     fun onClick(view: View) {
         when (view.id) {
@@ -45,7 +47,7 @@ class MainActivity : AppCompatActivity() {
                         getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     val bufferSize: Int =
                         AudioTrack.getMinBufferSize(
-                            16000,
+                            sampleRateInHz,
                             AudioFormat.CHANNEL_OUT_MONO,
                             AudioFormat.ENCODING_PCM_16BIT
                         )
@@ -54,7 +56,7 @@ class MainActivity : AppCompatActivity() {
                         .build()
                     val audioFormat: AudioFormat = AudioFormat.Builder()
                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(16000)
+                        .setSampleRate(sampleRateInHz)
                         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                         .build()
                     val sessionId = audioManager.generateAudioSessionId()
@@ -63,25 +65,12 @@ class MainActivity : AppCompatActivity() {
                             audioAttributes, audioFormat, bufferSize, AudioTrack.MODE_STREAM,
                             sessionId
                         )
-                    var nsUtils: NoiseSuppressorUtils? = null
-                    var nsxId = 0L
-                    var agcUtils: AutomaticGainControlUtils? = null
-                    var agcId = 0L
-                    if (enabledNsAgc) {
-                        nsUtils = NoiseSuppressorUtils()
-                        nsxId = nsUtils.nsxCreate()
-                        val nsxInit = nsUtils.nsxInit(nsxId, 16000)
-                        val nexSetPolicy = nsUtils.nsxSetPolicy(nsxId, 2)
-                        Log.i(tag, "nsxId : $nsxId  nsxInit: $nsxInit nexSetPolicy: $nexSetPolicy")
 
-                        agcUtils = AutomaticGainControlUtils()
-                        agcId = agcUtils.agcCreate()
-                        val agcInitResult = agcUtils.agcInit(agcId, 0, 255, 3, 16000)
-                        val agcSetConfigResult = agcUtils.agcSetConfig(agcId, 9, 9, true)
-                        Log.e(
-                            tag,
-                            "agcId : $agcId  agcInit: $agcInitResult agcSetConfig: $agcSetConfigResult"
-                        )
+                    var helper: Audio3AHelper? = null
+                    if (enabledNsAgc) {
+                        helper = Audio3AHelper()
+                        helper.setSampleRate(sampleRateInHz)
+                        helper.config()
                     }
                     kotlin.run {
                         audioTrack.play()
@@ -90,34 +79,46 @@ class MainActivity : AppCompatActivity() {
                         if (isStop) {
                             return@run
                         }
-                        audioData.asSequence().chunked(320).filter { it.size == 320 }.forEach {
-                            val byteArray = it.toByteArray()
-                            if (enabledNsAgc) {
-                                val inputData = ShortArray(160)
-                                val outNsData = ShortArray(160)
-                                val outAgcData = ShortArray(160)
-                                ByteBuffer.wrap(byteArray).order(ByteOrder.LITTLE_ENDIAN)
-                                    .asShortBuffer()
-                                    .get(inputData)
-                                nsUtils!!.nsxProcess(nsxId, inputData, 1, outNsData)
-                                agcUtils!!.agcProcess(
-                                    agcId, outNsData, 1, 160, outAgcData,
-                                    0, 0, 0, false
-                                )
-                                if (isStop) {
-                                    return@run
-                                }
-                                audioTrack.write(outAgcData, 0, 160)
-                            } else {
-                                audioTrack.write(byteArray, 0, byteArray.size)
-                            }
-                            if (isStop) {
-                                return@run
+
+                        var useNsAgc = enabledNsAgc
+                        var chunkSize = 0
+                        if (useNsAgc) {
+                            chunkSize = helper!!.processSampleCount() * 2
+                            if (chunkSize == 0) {
+                                useNsAgc = false
                             }
                         }
+                        if (useNsAgc) {
+                            audioData.asSequence().chunked(chunkSize).filter { it.size == chunkSize }.forEach {
+                                val byteArray = it.toByteArray()
+
+                                val outData = ByteArray(chunkSize)
+
+                                val succeed = helper!!.process(byteArray, outData)
+                                if (succeed == true) {
+                                    helper.testPlay(this, outData, 0, chunkSize)
+                                }
+                                else {
+                                    helper.testPlay(this, byteArray, 0, chunkSize)
+                                }
+                            }
+                        }
+                        else {
+                            audioTrack.write(audioData, 0, audioData.size)
+                        }
+                        if (isStop) {
+                            return@run
+                        }
+
+
+
+
+
+
                     }
-                    nsUtils?.nsxFree(nsxId)
-                    agcUtils?.agcFree(agcId)
+//                    nsUtils?.nsxFree(nsxId)
+//                    agcUtils?.agcFree(agcId)
+                    helper?.free()
                     audioTrack.stop()
                     audioTrack.release()
                 }
