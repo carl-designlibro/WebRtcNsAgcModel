@@ -1,12 +1,11 @@
 # WebRtcNsAgcModel
 ******
-fork仓库在原仓库基础，做了接入层的封装，参数校验，封装成aar，业务不需要源码就可直接使用
-
-打包aar:./gradlew WebRtcNsAgcModel:assembleRelease
-使用：
-implementation files('libs/WebRtcNsAgcModel-release.aar')
-//    or
-//    implementation project(':WebRtcNsAgcModel')
+fork仓库在原仓库基础，做了接入层的封装，参数校验，封装成aar，业务不需要源码就可直接使用  
+打包aar:./gradlew WebRtcNsAgcModel:assembleRelease  
+使用：  
+implementation files('libs/WebRtcNsAgcModel-release.aar')  
+//    or  
+//    implementation project(':WebRtcNsAgcModel')  
 
 ******
 抽取webRtc内NS(降噪)与AGC(增益)模块（修改了check.h文件来移除了多余的 C 依赖使so包缩减到最小）
