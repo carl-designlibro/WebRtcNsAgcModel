@@ -65,6 +65,9 @@ public class Audio3AHelper {
     }
 
     public void updateSampleRate(int sampleRate) {
+        if (sampleRate == this.sampleRate) {
+            return;
+        }
         free();
         setSampleRate(sampleRate);
         config();

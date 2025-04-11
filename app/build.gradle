@@ -27,13 +27,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-//    externalNativeBuild {
-//        cmake {
-//            path "src/main/cpp/CMakeLists.txt"
-//            version "3.10.2"
-//        }
-//    }
-//    ndkVersion '25.1.8937393'
 
     buildFeatures {
         viewBinding true
@@ -41,9 +34,10 @@ android {
 }
 
 dependencies {
-//    implementation fileTree(dir: 'libs', include: ['*.aar'])
-//    or debug
-        implementation project(':WebRtcNsAgcModel')
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation files('libs/WebRtcNsAgcModel-release.aar')
+//    or
+//    implementation project(':WebRtcNsAgcModel')
 
     implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.appcompat:appcompat:1.1.0'
