@@ -11,6 +11,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
+import vip.inode.demo.webrtc.AutomaticGainControlUtils;
+import vip.inode.demo.webrtc.NoiseSuppressorUtils;
+
 //使用WebRtcNsAgcModel的噪声抑制和增益控制
 //https://github.com/carl-designlibro/WebRtcNsAgcModel
 public class Audio3AHelper {
@@ -177,7 +180,71 @@ public class Audio3AHelper {
         }
     }
 
-    public boolean process(byte[] inframe, byte[] outframe) {
+    public boolean process(byte[] inframe, int  srcPos, byte[] outframe, int  destPos, int length) {
+        assert srcPos + length <= inframe.length;
+        assert destPos + length <= outframe.length;
+        assert length % 2 == 0;
+
+        boolean ans = enableAns && nsxId != 0;
+        boolean agc = enableAgc && agcInst != 0;
+
+        if (!ans && !agc) {
+            return false;
+        }
+
+        //16bit,每个采样2个字节
+        int chunkSampleCount = processSampleCount();
+        int chunkSize = chunkSampleCount * sampleSize();
+        if (chunkSize == 0) {
+            return false;
+        }
+
+        boolean succeed = false;
+        short[] inputData = new short[chunkSampleCount];
+        ByteBuffer byteBuffer = ByteBuffer.allocate(chunkSize);
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        short[] outData = new short[chunkSampleCount];
+//        分片处理
+        for (int i = 0; i < length; i += chunkSize) {
+            int lengthOnce = chunkSize;
+            // 过滤不足一片字节的块
+            if (i + chunkSize > length) {
+                // 跳过不完整的块
+                lengthOnce = length - i;
+                assert (lengthOnce > 0);
+                //拷贝原始数据
+                System.arraycopy(inframe, i, outframe, i, lengthOnce);
+                break;
+            }
+
+            byteBuffer.clear();
+            // 写入short数据
+            for (int index = 0; index < lengthOnce; index++) {
+                byteBuffer.put(inframe[srcPos + i + index]);
+            }
+            // 重置position以便读取
+            byteBuffer.flip();
+            byteBuffer.asShortBuffer().get(inputData);
+
+            succeed = process(inputData, outData);
+            if (succeed) {
+                // 将处理后的数据写入输出数组
+                for (int j = 0; j < outData.length; j++) {
+                    outframe[destPos + i + j * 2] = (byte) (outData[j] & 0xFF);
+                    outframe[destPos + i + j * 2 + 1] = (byte) ((outData[j] >> 8) & 0xFF);
+                }
+            }
+            else {
+                return false;
+            }
+        }
+
+        return succeed;
+    }
+
+    //    每次处理一个分片，需要保证分片大小符合采样率要求
+    public boolean processChunk(byte[] inframe, byte[] outframe) {
         assert inframe.length == outframe.length;
         assert inframe.length % 2 == 0;
 
@@ -193,7 +260,7 @@ public class Audio3AHelper {
             return false;
         }
 
-        boolean successed = false;
+        boolean succeed = false;
 
         short[] inputData = new short[inframe.length / 2];
         ByteBuffer byteBuffer = ByteBuffer.allocate(inframe.length);
@@ -207,15 +274,15 @@ public class Audio3AHelper {
         byteBuffer.asShortBuffer().get(inputData);
 
         short[] outData = new short[inputData.length];
-        successed = process(inputData, outData);
-        if (successed) {
+        succeed = process(inputData, outData);
+        if (succeed) {
             // 将处理后的数据写入输出数组
             for (int i = 0; i < outData.length; i++) {
                 outframe[i * 2] = (byte) (outData[i] & 0xFF);
                 outframe[i * 2 + 1] = (byte) ((outData[i] >> 8) & 0xFF);
             }
         }
-        return successed;
+        return succeed;
     }
 
     //    单次处理的采样数
@@ -229,6 +296,11 @@ public class Audio3AHelper {
             return 160;
         }
         return 0;
+    }
+
+    public int sampleSize() {
+        //ENCODING_PCM_16BIT，每个采样2个字节
+        return 2;
     }
 
     public boolean process(short[] inframe, short[] outframe) {
