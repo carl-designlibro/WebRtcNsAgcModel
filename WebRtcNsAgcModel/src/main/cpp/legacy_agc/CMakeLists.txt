@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.1)
+cmake_minimum_required(VERSION 3.13.2)
 
 file(GLOB SRC_FILES
         */*.cc
@@ -17,4 +17,5 @@ add_definitions(
 
 find_library(log-lib log)
 
+target_link_options(legacy_agc-lib PRIVATE "-Wl,-z,max-page-size=16384")
 target_link_libraries(legacy_agc-lib ${log-lib})

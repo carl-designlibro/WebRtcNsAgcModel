@@ -17,4 +17,5 @@ add_definitions(
 
 find_library(log-lib log)
 
+target_link_options(legacy_ns-lib PRIVATE "-Wl,-z,max-page-size=16384")
 target_link_libraries(legacy_ns-lib ${log-lib})
